@@ -46,41 +46,32 @@ services:
   producer:
     build: ./producer
     ports:
-      - "8083:8083"
+      - "8070:8070"
     environment:
       KAFKA_BOOTSTRAP_SERVERS: "broker:9092"
       KAFKA_CLIENT_ID: "producer"
       INPUT_TOPIC: "input"
-      MESSAGE_BACKOFF_MS: 10
+      MESSAGE_BACKOFF_MS: 1000
       REPLICATION_FACTOR: 1
-      NUMBER_OF_PARTITIONS: 1
-      PROMETHEUS_PORT: 8083
+      NUMBER_OF_PARTITIONS: 8
+      PROMETHEUS_PORT: 8070
     depends_on:
       - broker        
 
-  streams1:
-    build: ./streams
-    ports:
-      - "8081:8081"
-    environment:
-      KAFKA_BOOTSTRAP_SERVERS: "broker:9092"
-      APPLICATION_ID: "streams1"
-      INPUT_TOPIC: "input"
-      OUTPUT_TOPIC: "output-streams1"      
-      REPLICATION_FACTOR: 1
-      NUMBER_OF_PARTITIONS: 1
-      PROMETHEUS_PORT: 8081
-    depends_on:
-      - broker
-
-  streams-with-external-call:
-    build: ./streams-with-external-call
-    ports:
-      - "8080:8080"
-    environment:
-      KAFKA_STREAMS_SAMPLESTREAMS_PROPERTIES_BOOTSTRAP_SERVERS: "broker:9092"
-    depends_on:
-      - broker    
+  # streams:
+  #   build: ./streams
+  #   ports:
+  #     - "8081:8081"
+  #   environment:
+  #     KAFKA_BOOTSTRAP_SERVERS: "broker:9092"
+  #     APPLICATION_ID: "streams"
+  #     INPUT_TOPIC: "input"
+  #     OUTPUT_TOPIC: "output-streams1"      
+  #     REPLICATION_FACTOR: 1
+  #     NUMBER_OF_PARTITIONS: 1
+  #     PROMETHEUS_PORT: 8081
+  #   depends_on:
+  #     - broker
 
   kafka-lag-exporter:
     image: lightbend/kafka-lag-exporter

@@ -21,21 +21,26 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.kafka.clients.CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
+import static org.awaitility.Awaitility.await;
 
-public class SampleProcessedRecordsTest {
+public class StreamsAppTest {
 
     KafkaProducer<String, String> inputProducer;
     KafkaConsumer<String, String> inputConsumer;
     KafkaConsumer<String, String> outputConsumer;
     KafkaConsumer<String, String> repartitionConsumer;
     Topics topics;
-    SampleProcessedRecords streams;
+    StreamsApp streamsApp;
 
     @ClassRule
     public static KafkaContainer kafka = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.0.1"));
@@ -87,12 +92,12 @@ public class SampleProcessedRecordsTest {
                 new StringDeserializer(), new StringDeserializer()
         );
 
-        repartitionConsumer.subscribe(Collections.singletonList(SampleProcessedRecords.class.getName() + "-my-repartition"));
+        repartitionConsumer.subscribe(Collections.singletonList(StreamsApp.class.getName() + "-my-repartition"));
     }
 
     @After
     public void afterEach() {
-        streams.stop();
+        streamsApp.stop();
     }
 
     private void loadInput(List<KeyValue<String, String>> input) {
@@ -129,12 +134,12 @@ public class SampleProcessedRecordsTest {
 
     @Test
     public void testProcessedRecordsCount() throws Exception {
-        streams = new SampleProcessedRecords(
+        streamsApp = new StreamsApp(
                 Map.of(
                         BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers()
                 )
         );
-        streams.start();
+        streamsApp.start();
 
         loadInput(List.of(
                 new KeyValue<>("1", "101")
@@ -142,27 +147,12 @@ public class SampleProcessedRecordsTest {
 
         List<ConsumerRecord> loaded = new ArrayList<>();
 
-        long startLoaded = System.currentTimeMillis();
-        while (loaded.isEmpty() && System.currentTimeMillis() - startLoaded < 20_000) {
-            ConsumerRecords<String, String> records = outputConsumer.poll(Duration.of(10, ChronoUnit.SECONDS));
-            records.forEach((record) -> loaded.add(record));
-        }
-
-        assertThat(loaded).isNotEmpty();
-        loaded.forEach((record) -> {
-            System.out.println("K: " + record.key() + ", V:" + record.value() + ", TS:" + record.timestamp());
-        });
-
-        List<KeyValue<String, String>> repartitioned = new ArrayList<>();
-
-        long startRepartition = System.currentTimeMillis();
-        while (repartitioned.isEmpty() && System.currentTimeMillis() - startRepartition < 20_000) {
-            ConsumerRecords<String, String> records = repartitionConsumer.poll(Duration.of(10, ChronoUnit.SECONDS));
-            records.forEach((record) -> repartitioned.add(new KeyValue<>(record.key(), record.value())));
-        }
-
-        assertThat(repartitioned).isNotEmpty();
-
+        await().atMost(20, TimeUnit.SECONDS)
+                .untilAsserted(() -> {
+                    ConsumerRecords<String, String> records = outputConsumer.poll(Duration.of(10, ChronoUnit.SECONDS));
+                    records.forEach((record) -> loaded.add(record));
+                    assertThat(loaded).isNotEmpty();
+                });
     }
 
 }
